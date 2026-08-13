@@ -32,3 +32,42 @@ export async function runContentCreator({
     .map((block) => block.text)
     .join("");
 }
+
+export async function runContentCreatorThreadJSON(
+  funnelStage: FunnelStage
+): Promise<string[]> {
+  const response = await claude.messages.create({
+    model: MODEL,
+    max_tokens: 1500,
+    system: contentCreatorSystemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: `Buat 1 thread Threads untuk tahap funnel ${funnelStage} tentang keresahan bapak-bapak kerja kantoran. Pilih sendiri 1 sudut pandang spesifik yang segar - bisa lucu, reflektif personal, atau menginspirasi, sesuaikan dengan tahap funnel. Balas HANYA dengan JSON array of strings, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook, total 3-5 post).`,
+      },
+    ],
+  });
+
+  const text = response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.trim());
+  } catch {
+    throw new Error(
+      `Gagal parse response Claude sebagai JSON array: ${text}`
+    );
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((item) => typeof item === "string")
+  ) {
+    throw new Error(`Response Claude bukan JSON array of strings: ${text}`);
+  }
+
+  return parsed;
+}
