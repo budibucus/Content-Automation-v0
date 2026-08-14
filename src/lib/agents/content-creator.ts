@@ -33,6 +33,12 @@ export async function runContentCreator({
     .join("");
 }
 
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  return fenceMatch ? fenceMatch[1] : trimmed;
+}
+
 export async function runContentCreatorThreadJSON(
   funnelStage: FunnelStage
 ): Promise<string[]> {
@@ -55,7 +61,7 @@ export async function runContentCreatorThreadJSON(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text.trim());
+    parsed = JSON.parse(stripCodeFence(text));
   } catch {
     throw new Error(
       `Gagal parse response Claude sebagai JSON array: ${text}`
