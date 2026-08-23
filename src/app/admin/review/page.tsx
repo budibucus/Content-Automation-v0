@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { PublishButton } from "./publish-button";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminReviewPage() {
   const { data: pieces, error } = await supabaseAdmin
     .from("content_pieces")
