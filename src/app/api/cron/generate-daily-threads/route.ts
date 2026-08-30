@@ -26,14 +26,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const threadPosts = await runContentCreatorThreadJSON(stage);
+  const result = await runContentCreatorThreadJSON(stage);
 
   const { data, error } = await supabaseAdmin
     .from("content_pieces")
     .insert({
       format: "threads",
       funnel_stage: stage,
-      thread_posts: threadPosts,
+      thread_posts: result.posts,
+      content_pillar: result.pillar,
+      hook_type: result.hookType,
       status: "pending_review",
     })
     .select("id")
@@ -43,5 +45,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ stage, id: data.id });
+  return NextResponse.json({
+    stage,
+    id: data.id,
+    pillar: result.pillar,
+    hookType: result.hookType,
+  });
 }
