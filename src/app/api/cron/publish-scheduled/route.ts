@@ -2,13 +2,7 @@ import { NextResponse } from "next/server";
 import { publishThread } from "@/lib/threads";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export const maxDuration = 300;
-
-interface PublishResult {
-  id: string;
-  status: "published" | "failed";
-  error?: string;
-}
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -17,24 +11,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const now = new Date();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
   const { data: dueContent, error: fetchError } = await supabaseAdmin
     .from("content_pieces")
     .select("id, thread_posts")
     .eq("status", "approved")
-    .lte("scheduled_for", new Date().toISOString())
-    .order("scheduled_for", { ascending: true });
+    .gte("scheduled_for", oneHourAgo.toISOString())
+    .lte("scheduled_for", now.toISOString());
 
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
 
-  const results: PublishResult[] = [];
+  const publishedIds: string[] = [];
 
-  // Publish satu content_piece per satu waktu (bukan Promise.all) supaya
-  // tidak membanjiri Threads API dengan beberapa thread sekaligus - jeda
-  // antar post di dalam publishThread cuma efektif kalau publish-nya sendiri
-  // juga berurutan.
+  // Publish satu per satu (bukan Promise.all) supaya tidak membanjiri
+  // Threads API dengan beberapa thread sekaligus.
   for (const piece of dueContent ?? []) {
+    // Row-locking sederhana: cuma lanjut kalau UPDATE ini benar-benar
+    // mengubah row (masih berstatus "approved"). Kalau row sudah diambil
+    // proses/invocation lain (race condition antar cron run), update ini
+    // tidak akan match apa pun - skip tanpa error.
+    const { data: locked, error: lockError } = await supabaseAdmin
+      .from("content_pieces")
+      .update({ status: "publishing" })
+      .eq("id", piece.id)
+      .eq("status", "approved")
+      .select("id");
+
+    if (lockError || !locked || locked.length === 0) {
+      continue;
+    }
+
     try {
       await publishThread(piece.thread_posts as string[]);
 
@@ -43,7 +53,7 @@ export async function GET(request: Request) {
         .update({ status: "published" })
         .eq("id", piece.id);
 
-      results.push({ id: piece.id, status: "published" });
+      publishedIds.push(piece.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
@@ -51,15 +61,8 @@ export async function GET(request: Request) {
         .from("content_pieces")
         .update({ status: "failed", error_message: message })
         .eq("id", piece.id);
-
-      results.push({ id: piece.id, status: "failed", error: message });
     }
   }
 
-  return NextResponse.json({
-    processed: results.length,
-    published: results.filter((r) => r.status === "published").length,
-    failed: results.filter((r) => r.status === "failed").length,
-    results,
-  });
+  return NextResponse.json({ published: publishedIds });
 }
