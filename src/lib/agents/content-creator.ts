@@ -1,7 +1,7 @@
 import { claude, MODEL } from "@/lib/claude";
 import { contentCreatorSystemPrompt } from "@/lib/prompts/content-creator";
 import { supabaseAdmin } from "@/lib/supabase";
-import { BRAND_CONFIG } from "@/config/brand";
+import { BRAND_CONFIG, ACTIVE_CONTENT_TYPES } from "@/config/brand";
 
 // Data pillar & hook type sekarang terpusat di BRAND_CONFIG (src/config/brand.ts).
 const CONTENT_PILLARS = BRAND_CONFIG.contentPillars;
@@ -142,6 +142,7 @@ export interface ThreadGenerationResult {
   posts: string[];
   pillar: string;
   hookType: string;
+  contentType: string;
 }
 
 export async function runContentCreatorThreadJSON(
@@ -157,6 +158,27 @@ export async function runContentCreatorThreadJSON(
   const chosenPillar = pillar ?? pickRandom(PILLAR_NAMES);
   const { seed, extraInstruction } = getSeedForPillar(chosenPillar);
   const hookType = pickRandom(HOOK_TYPES);
+
+  const contentTypeName = pickRandom(ACTIVE_CONTENT_TYPES);
+  const contentType = BRAND_CONFIG.contentTypes.find(
+    (type) => type.name === contentTypeName
+  );
+
+  if (!contentType) {
+    throw new Error(`Content type tidak ditemukan: "${contentTypeName}"`);
+  }
+
+  // thread_panjang/thread_pendek mewajibkan jumlah post tertentu - instruksi
+  // itu MENGGANTIKAN default "total 3-5 post" di bawah, bukan sekadar
+  // tambahan, supaya panjang thread benar-benar ikut content type.
+  const hasMandatoryLength =
+    contentType.name === "thread_panjang" || contentType.name === "thread_pendek";
+  const postCountClause = hasMandatoryLength
+    ? `jumlah post WAJIB mengikuti instruksi panjang di atas (${contentType.postCountHint})`
+    : "total 3-5 post";
+
+  const styleInstruction = `Struktur/format konten: ${contentType.name} - ${contentType.desc}. Panjang: ${contentType.postCountHint}. Gaya pembuka (hook): ${hookType.name} - ${hookType.desc}.`;
+
   const feedbackBlock = await getRecentFeedbackBlock();
 
   const response = await claude.messages.create({
@@ -167,7 +189,7 @@ export async function runContentCreatorThreadJSON(
     messages: [
       {
         role: "user",
-        content: `${feedbackBlock}Buat 1 thread Threads untuk tahap funnel ${funnelStage} tentang keresahan bapak-bapak kerja kantoran, dari pillar konten "${chosenPillar}". Pilih sendiri sudut pandang spesifik yang segar sesuai tahap funnel dan pillar ini. Gunakan momen/ide spesifik ini sebagai titik berangkat: ${seed}. Kembangkan dari momen ini, jangan generalisasi ke tema besar - tetap konkret dan personal.${extraInstruction ? ` ${extraInstruction}` : ""} Gaya hook untuk post pertama: ${hookType.name} - ${hookType.desc}. Balas HANYA dengan JSON array of strings, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook, total 3-5 post).`,
+        content: `${feedbackBlock}Buat 1 thread Threads untuk tahap funnel ${funnelStage} tentang keresahan bapak-bapak kerja kantoran, dari pillar konten "${chosenPillar}". Pilih sendiri sudut pandang spesifik yang segar sesuai tahap funnel dan pillar ini. Gunakan momen/ide spesifik ini sebagai titik berangkat: ${seed}. Kembangkan dari momen ini, jangan generalisasi ke tema besar - tetap konkret dan personal.${extraInstruction ? ` ${extraInstruction}` : ""} ${styleInstruction} Balas HANYA dengan JSON array of strings, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook, ${postCountClause}).`,
       },
     ],
   });
@@ -181,6 +203,7 @@ export async function runContentCreatorThreadJSON(
     posts: parseThreadPostsJSON(text),
     pillar: chosenPillar,
     hookType: hookType.name,
+    contentType: contentType.name,
   };
 }
 

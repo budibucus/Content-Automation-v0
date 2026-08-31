@@ -110,6 +110,7 @@ export async function GET(request: Request) {
         thread_posts: result.posts,
         content_pillar: result.pillar,
         hook_type: result.hookType,
+        content_type: result.contentType,
         scheduled_for: slot.scheduledFor,
         status: "pending_review",
       };

@@ -3,12 +3,19 @@ interface HookType {
   desc: string;
 }
 
+interface ContentType {
+  name: string;
+  desc: string;
+  postCountHint: string;
+}
+
 interface BrandConfig {
   name: string;
   displayName: string;
   persona: string;
   contentPillars: Record<string, string[]>;
   hookTypes: HookType[];
+  contentTypes: ContentType[];
 }
 
 export const BRAND_CONFIG: BrandConfig = {
@@ -109,4 +116,21 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
     { name: "personal_story", desc: "buka dengan momen personal yang spesifik dan konkret" },
     { name: "breaking_news", desc: "buka dengan framing 'baru sadar' atau 'baru kejadian', terasa fresh dan mendesak" },
   ],
+  contentTypes: [
+    { name: "opini", desc: "sampaikan 1 pendapat/sudut pandang tegas dengan alasan singkat, gaya to-the-point", postCountHint: "1-2 post" },
+    { name: "storytelling", desc: "narasikan sebagai cerita personal dengan alur jelas: situasi - konflik/tantangan - resolusi atau pelajaran", postCountHint: "2-4 post" },
+    { name: "edukasi", desc: "jelaskan 1 insight atau cara berpikir secara terstruktur, seperti mengajarkan sesuatu ke pembaca", postCountHint: "2-4 post" },
+    { name: "checklist", desc: "format sebagai daftar langkah atau poin actionable, ringkas dan jelas per poin, boleh bernomor", postCountHint: "1 post berisi list singkat, atau thread dengan 1 poin utama per post" },
+    { name: "studi_kasus", desc: "bedah 1 skenario atau situasi spesifik secara mendalam: apa yang terjadi, kenapa penting, apa pelajarannya", postCountHint: "3-5 post" },
+    { name: "thread_panjang", desc: "bangun narasi atau argumen bertahap yang butuh ruang untuk berkembang, JANGAN dipendekkan", postCountHint: "WAJIB 4-5 post, jangan kurang dari itu" },
+    { name: "thread_pendek", desc: "sampaikan dengan ringkas dan padat, satu ide utama saja, jangan diperpanjang tanpa perlu", postCountHint: "WAJIB 1-2 post, jangan lebih dari itu" },
+  ],
 };
+
+// "carousel_gambar" sengaja tidak didaftarkan di BRAND_CONFIG.contentTypes.
+// Carousel gambar belum aktif karena publishThread di threads.ts baru
+// mendukung media_type=TEXT, perlu ditambah dukungan upload/generate gambar
+// dan media_type=IMAGE sebelum tipe ini bisa diaktifkan.
+export const ACTIVE_CONTENT_TYPES = BRAND_CONFIG.contentTypes
+  .map((type) => type.name)
+  .filter((name) => name !== "carousel_gambar");

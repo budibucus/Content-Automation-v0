@@ -36,6 +36,7 @@ export async function GET(request: Request) {
       thread_posts: result.posts,
       content_pillar: result.pillar,
       hook_type: result.hookType,
+      content_type: result.contentType,
       status: "pending_review",
     })
     .select("id")
@@ -50,5 +51,6 @@ export async function GET(request: Request) {
     id: data.id,
     pillar: result.pillar,
     hookType: result.hookType,
+    contentType: result.contentType,
   });
 }
