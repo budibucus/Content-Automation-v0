@@ -152,23 +152,7 @@ A few decisions worth calling out explicitly, since they came up as real trade-o
 
 ---
 
-## 5. Build Progress
-
-Built as a structured, day-by-day sprint (see full plan doc for detailed per-step build log and Claude Code prompts used at each stage).
-
-- [x] **Day 1 — Foundation.** Next.js + TypeScript scaffold, Claude API tool-calling verified end-to-end, Supabase schema (`products`, `content_pieces`, `agent_runs`) with RLS, deployed to Vercel.
-- [x] **Day 2 — PM Orchestrator + Content Creator Agent.** First working supervisor/worker tool-calling loop; generated content persisted to database; verified in both local and production environments.
-- [x] **Day 3 — Product Creator Agent.** Pivoted from a static worksheet to a personalized report generator; orchestrator extended to multi-tool routing (2 worker agents).
-- [x] **Day 4 — Auth backend + payment webhook.** `customers` table, Lynk.id webhook with HMAC verification, bcrypt password hashing, JWT session issuance, auth guard applied to the product-generation endpoint.
-- [x] **Day 5 — Frontend.** Setup-password, login, and protected tool pages; personalized report rendered from markdown; full buyer flow usable in-browser.
-- [ ] **Day 6 — Threads automation, Part 1 (generation pipeline).** *In progress:* DB schema extended (`funnel_stage`, `thread_posts`); structured JSON thread generator implemented. Remaining: Threads publish library, cron-triggered generation endpoint.
-- [ ] **Day 7 — Threads automation, Part 2 (review, publish, scheduling).** Admin review page (Basic Auth), deterministic publish endpoint, 3x/day Vercel Cron across TOFU/MOFU/BOFU, end-to-end test against the live Threads account.
-- [ ] **Day 8 — Marketer Agent.** Performance-analysis agent; groundwork for the few-shot self-improvement loop described in Section 4.
-- [ ] **Day 9 (stretch) — Polish.** Admin dashboard, `agent_runs` logging surfaced in UI, this README finalized with a demo video/GIF.
-
----
-
-## 6. Local Development
+## 5. Local Development
 
 ```bash
 git clone <this-repo>
@@ -198,6 +182,6 @@ npm run dev
 
 ---
 
-## 7. Author
+## 6. Author
 
 Built by [Antonius Budi Susilo](https://github.com/budibucus) — an IT Project Manager building this as a dual-purpose project: a real digital product business, and a hands-on demonstration of agentic AI system design for future AI engineering / automation roles.
