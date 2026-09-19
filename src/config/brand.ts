@@ -16,6 +16,8 @@ interface BrandConfig {
   contentPillars: Record<string, string[]>;
   hookTypes: HookType[];
   contentTypes: ContentType[];
+  writingStyleRules: string;
+  valuePrinciple: string;
 }
 
 export const BRAND_CONFIG: BrandConfig = {
@@ -115,16 +117,28 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
     { name: "list", desc: "buka dengan menyiratkan akan ada beberapa poin/langkah" },
     { name: "personal_story", desc: "buka dengan momen personal yang spesifik dan konkret" },
     { name: "breaking_news", desc: "buka dengan framing 'baru sadar' atau 'baru kejadian', terasa fresh dan mendesak" },
+    { name: "hasil_konkret", desc: "buka dengan menyebutkan hasil/pencapaian konkret secara langsung (angka, pencapaian spesifik) sebelum masuk ke cerita/penjelasan" },
+    { name: "janji_jelas", desc: "buka dengan menyatakan jelas apa yang akan didapat pembaca setelah membaca sampai selesai" },
   ],
   contentTypes: [
     { name: "opini", desc: "sampaikan 1 pendapat/sudut pandang tegas dengan alasan singkat, gaya to-the-point", postCountHint: "1-2 post" },
-    { name: "storytelling", desc: "narasikan sebagai cerita personal dengan alur jelas: situasi - konflik/tantangan - resolusi atau pelajaran", postCountHint: "2-4 post" },
+    { name: "storytelling", desc: "narasikan sebagai cerita personal dengan struktur: Masalah - Proses - Hasil - Pelajaran. Pastikan ada pelajaran konkret di akhir, bukan cuma cerita tanpa penutup yang jelas.", postCountHint: "2-4 post" },
     { name: "edukasi", desc: "jelaskan 1 insight atau cara berpikir secara terstruktur, seperti mengajarkan sesuatu ke pembaca", postCountHint: "2-4 post" },
     { name: "checklist", desc: "format sebagai daftar langkah atau poin actionable, ringkas dan jelas per poin, boleh bernomor", postCountHint: "1 post berisi list singkat, atau thread dengan 1 poin utama per post" },
     { name: "studi_kasus", desc: "bedah 1 skenario atau situasi spesifik secara mendalam: apa yang terjadi, kenapa penting, apa pelajarannya", postCountHint: "3-5 post" },
     { name: "thread_panjang", desc: "bangun narasi atau argumen bertahap yang butuh ruang untuk berkembang, JANGAN dipendekkan", postCountHint: "WAJIB 4-5 post, jangan kurang dari itu" },
     { name: "thread_pendek", desc: "sampaikan dengan ringkas dan padat, satu ide utama saja, jangan diperpanjang tanpa perlu", postCountHint: "WAJIB 1-2 post, jangan lebih dari itu" },
+    { name: "relatable", desc: "gambarkan momen sehari-hari spesifik yang bikin pembaca mikir 'ini gue banget' - dari pengalaman umum yang sering dialami tapi jarang diomongin terbuka, TANPA perlu insight besar di akhir, cukup relate", postCountHint: "1-2 post" },
+    { name: "engagement", desc: "ajukan 1 pertanyaan terbuka yang mancing orang buat komentar/balas - TUJUANNYA memancing diskusi, bukan kasih informasi. Jangan terlalu sering dipakai relatif ke tipe lain", postCountHint: "1 post saja" },
   ],
+  writingStyleRules: `Gunakan kalimat pendek. Satu paragraf cukup 1-2 kalimat.
+Hindari istilah rumit atau bahasa yang berusaha kedengaran pintar - gunakan
+bahasa seperti sedang ngobrol. Masuk ke inti pembahasan secepat mungkin.
+Tujuan menulis adalah membuat orang paham, bukan membuat orang kagum.`,
+  valuePrinciple: `Sebelum posting selesai ditulis, pastikan lolos 1 pertanyaan:
+kalau ini dibuat orang lain, apakah gue bakal mau share? Kalau jawabannya
+tidak, perbaiki dulu - biasanya karena manfaatnya belum jelas (pengetahuan
+baru, solusi, checklist, framework, atau pengalaman yang bisa dipelajari).`,
 };
 
 // "carousel_gambar" sengaja tidak didaftarkan di BRAND_CONFIG.contentTypes.

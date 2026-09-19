@@ -4,27 +4,22 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const maxDuration = 60;
 
-const ACTIVE_STAGES = ["tofu", "mofu"] as const;
-// BOFU sengaja tidak dimasukkan untuk sementara, gampang ditambah balik
-// nanti tinggal tambahkan "bofu" ke array ini (dan jam WIB-nya di
-// STAGE_HOURS_WIB di bawah).
-type ActiveStage = (typeof ACTIVE_STAGES)[number];
+const SLOT_SCHEDULE = [
+  { hour: 5, stage: "tofu" },
+  { hour: 11, stage: "mofu" },
+  { hour: 19, stage: "tofu" },
+] as const;
+type Stage = (typeof SLOT_SCHEDULE)[number]["stage"];
 
-const STAGE_HOURS_WIB: Record<ActiveStage, number> = {
-  tofu: 5,
-  mofu: 11,
-};
+const ACTIVE_STAGES = [
+  ...new Set(SLOT_SCHEDULE.map((slot) => slot.stage)),
+] as Stage[];
 
 const DAYS_AHEAD = 14;
 
 interface Slot {
-  stage: ActiveStage;
-  dateKey: string; // tanggal kalender WIB, format YYYY-MM-DD
+  stage: Stage;
   scheduledFor: string; // instant ISO dalam UTC
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
 }
 
 function buildSlots(): Slot[] {
@@ -42,33 +37,19 @@ function buildSlots(): Slot[] {
     const year = day.getUTCFullYear();
     const month = day.getUTCMonth();
     const date = day.getUTCDate();
-    const dateKey = `${year}-${pad(month + 1)}-${pad(date)}`;
 
-    for (const stage of ACTIVE_STAGES) {
-      const wibHour = STAGE_HOURS_WIB[stage];
+    for (const { hour: wibHour, stage } of SLOT_SCHEDULE) {
       // Konversi WIB (UTC+7) ke UTC: kurangi 7 jam dari jam WIB. Date.UTC
       // otomatis handle rollback ke hari sebelumnya kalau hasilnya negatif.
       const scheduledFor = new Date(
         Date.UTC(year, month, date, wibHour - 7, 0, 0, 0)
       ).toISOString();
 
-      slots.push({ stage, dateKey, scheduledFor });
+      slots.push({ stage, scheduledFor });
     }
   }
 
   return slots;
-}
-
-// Konversi scheduled_for (UTC) yang tersimpan di database kembali ke
-// tanggal kalender WIB, supaya bisa dibandingkan per tanggal (bukan per
-// detik) dengan dateKey dari buildSlots().
-function toWibDateKey(scheduledForUtc: string): string {
-  const wib = new Date(
-    new Date(scheduledForUtc).getTime() + 7 * 60 * 60 * 1000
-  );
-  return `${wib.getUTCFullYear()}-${pad(wib.getUTCMonth() + 1)}-${pad(
-    wib.getUTCDate()
-  )}`;
 }
 
 export async function GET(request: Request) {
@@ -92,12 +73,13 @@ export async function GET(request: Request) {
 
   const existingKeys = new Set(
     (existing ?? []).map(
-      (row) => `${row.funnel_stage}|${toWibDateKey(row.scheduled_for)}`
+      (row) =>
+        `${row.funnel_stage}|${new Date(row.scheduled_for).toISOString()}`
     )
   );
 
   const toGenerate = slots.filter(
-    (slot) => !existingKeys.has(`${slot.stage}|${slot.dateKey}`)
+    (slot) => !existingKeys.has(`${slot.stage}|${slot.scheduledFor}`)
   );
   const skipped = slots.length - toGenerate.length;
 
