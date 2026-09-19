@@ -5,16 +5,16 @@
       "schedule": "0 14 * * 0"
     },
     {
-      "path": "/api/cron/publish-scheduled?slot=tofu",
+      "path": "/api/cron/publish-scheduled",
       "schedule": "0 22 * * *"
     },
     {
-      "path": "/api/cron/publish-scheduled?slot=mofu",
+      "path": "/api/cron/publish-scheduled",
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/cron/publish-scheduled?slot=bofu",
-      "schedule": "0 13 * * *"
+      "path": "/api/cron/publish-scheduled",
+      "schedule": "0 12 * * *"
     }
   ]
 }
