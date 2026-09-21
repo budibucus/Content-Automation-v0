@@ -19,7 +19,7 @@ interface ContentPiece {
 interface DayGroup {
   dateKey: string;
   heading: string;
-  pieces: Partial<Record<ActiveStage, ContentPiece>>;
+  pieces: ContentPiece[];
 }
 
 const STATUS_LABEL: Record<ContentStatus, string> = {
@@ -69,12 +69,13 @@ function formatTime(iso: string): string {
 export default async function AdminReviewPage() {
   const now = new Date();
   const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const { data: pieces, error } = await supabaseAdmin
     .from("content_pieces")
     .select("id, funnel_stage, thread_posts, scheduled_for, status")
     .in("status", ["pending_review", "approved"])
-    .gte("scheduled_for", now.toISOString())
+    .gte("scheduled_for", windowStart.toISOString())
     .lte("scheduled_for", in14Days.toISOString())
     .order("scheduled_for", { ascending: true });
 
@@ -102,13 +103,13 @@ export default async function AdminReviewPage() {
       group = {
         dateKey,
         heading: formatDateHeading(piece.scheduled_for),
-        pieces: {},
+        pieces: [],
       };
       dayIndex.set(dateKey, group);
       days.push(group);
     }
 
-    group.pieces[piece.funnel_stage] = piece;
+    group.pieces.push(piece);
   }
 
   return (
@@ -147,10 +148,7 @@ export default async function AdminReviewPage() {
               </h2>
 
               <div className="mt-4 space-y-4">
-                {ACTIVE_STAGES.map((stage) => {
-                  const piece = day.pieces[stage];
-                  if (!piece) return null;
-
+                {day.pieces.map((piece) => {
                   const posts = (piece.thread_posts ?? []) as string[];
                   const statusStyle = STATUS_STYLE[piece.status];
 
