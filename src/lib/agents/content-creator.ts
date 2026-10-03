@@ -3,9 +3,14 @@ import { contentCreatorSystemPrompt } from "@/lib/prompts/content-creator";
 import { supabaseAdmin } from "@/lib/supabase";
 import { BRAND_CONFIG, ACTIVE_CONTENT_TYPES } from "@/config/brand";
 
-// Data pillar & hook type sekarang terpusat di BRAND_CONFIG (src/config/brand.ts).
+// Data pillar, hook type, content type & angle terpusat di BRAND_CONFIG
+// (src/config/brand.ts).
 const CONTENT_PILLARS = BRAND_CONFIG.contentPillars;
 const HOOK_TYPES = BRAND_CONFIG.hookTypes;
+const ANGLES = BRAND_CONFIG.angles;
+const CONTENT_TYPES = BRAND_CONFIG.contentTypes.filter((type) =>
+  ACTIVE_CONTENT_TYPES.includes(type.name)
+);
 
 // "cerita_inspirasi_composite" dan "cerita_inspirasi_verified" adalah
 // sub-kategori dari 1 pillar utama "cerita_inspirasi", bukan pillar
@@ -19,33 +24,30 @@ const PILLAR_NAMES = Array.from(
   )
 );
 
-function pickRandom<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
 interface PillarSeed {
   seed: string;
   extraInstruction: string;
 }
 
-function getSeedForPillar(pillar: string): PillarSeed {
+const VERIFIED_INSTRUCTION =
+  "Ini cerita FAKTA nyata - narasikan HANYA dari fakta yang diberikan, jangan menambah detail (nama, angka, atau kejadian) yang tidak ada di sumbernya.";
+const COMPOSITE_INSTRUCTION =
+  "Ini cerita ilustratif/komposit - buat sebagai cerita ilustratif/komposit, JANGAN klaim nama/angka spesifik sebagai fakta nyata.";
+
+function seedsForPillar(pillar: string): PillarSeed[] {
   if (pillar === "cerita_inspirasi") {
-    const verified = CONTENT_PILLARS.cerita_inspirasi_verified;
-    const composite = CONTENT_PILLARS.cerita_inspirasi_composite;
-
-    if (verified.length > 0) {
-      return {
-        seed: pickRandom(verified),
-        extraInstruction:
-          "Ini cerita FAKTA nyata - narasikan HANYA dari fakta yang diberikan, jangan menambah detail (nama, angka, atau kejadian) yang tidak ada di sumbernya.",
-      };
-    }
-
-    return {
-      seed: pickRandom(composite),
-      extraInstruction:
-        "Ini cerita ilustratif/komposit - buat sebagai cerita ilustratif/komposit, JANGAN klaim nama/angka spesifik sebagai fakta nyata.",
-    };
+    // Cerita verified dan composite digabung jadi 1 pool, supaya 2 cerita
+    // verified tidak terus-terusan dipakai tiap kali pillar ini terpilih.
+    return [
+      ...CONTENT_PILLARS.cerita_inspirasi_verified.map((seed) => ({
+        seed,
+        extraInstruction: VERIFIED_INSTRUCTION,
+      })),
+      ...CONTENT_PILLARS.cerita_inspirasi_composite.map((seed) => ({
+        seed,
+        extraInstruction: COMPOSITE_INSTRUCTION,
+      })),
+    ];
   }
 
   const seeds = CONTENT_PILLARS[pillar];
@@ -56,7 +58,67 @@ function getSeedForPillar(pillar: string): PillarSeed {
     );
   }
 
-  return { seed: pickRandom(seeds), extraInstruction: "" };
+  return seeds.map((seed) => ({ seed, extraInstruction: "" }));
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// "Kantong" berisi semua item yang diacak; item diambil satu per satu dan
+// kantong baru diisi ulang setelah habis. Hasilnya tiap item kebagian rata
+// dalam 1 batch, bukan acak murni yang bisa milih item yang sama berulang.
+function createBag<T>(items: T[]): () => T {
+  let queue: T[] = [];
+  return () => {
+    if (queue.length === 0) {
+      queue = shuffle(items);
+    }
+    return queue.pop()!;
+  };
+}
+
+type ContentType = (typeof CONTENT_TYPES)[number];
+type HookType = (typeof HOOK_TYPES)[number];
+
+export interface ContentPlan {
+  pillar: string;
+  seed: string;
+  extraInstruction: string;
+  contentType: ContentType;
+  hookType: HookType;
+  angle: string;
+}
+
+// Rencanakan kombinasi pillar/seed/content type/hook/angle untuk sejumlah
+// konten sekaligus, supaya dalam 1 batch tidak ada seed yang dipakai dua kali
+// sebelum semua seed di pillar itu kebagian.
+export function planContent(count: number): ContentPlan[] {
+  const nextPillar = createBag(PILLAR_NAMES);
+  const nextContentType = createBag(CONTENT_TYPES);
+  const nextHookType = createBag(HOOK_TYPES);
+  const nextAngle = createBag(ANGLES);
+  const seedBags = new Map(
+    PILLAR_NAMES.map((pillar) => [pillar, createBag(seedsForPillar(pillar))])
+  );
+
+  return Array.from({ length: count }, () => {
+    const pillar = nextPillar();
+    const { seed, extraInstruction } = seedBags.get(pillar)!();
+    return {
+      pillar,
+      seed,
+      extraInstruction,
+      contentType: nextContentType(),
+      hookType: nextHookType(),
+      angle: nextAngle(),
+    };
+  });
 }
 
 type Platform = "tiktok_video" | "tiktok_carousel" | "threads";
@@ -145,41 +207,46 @@ export interface ThreadGenerationResult {
   contentType: string;
 }
 
+// Ambil pembuka (post pertama) dari konten-konten terakhir, supaya Claude
+// tahu cerita/tokoh/sudut pandang apa yang baru saja dipakai dan tidak
+// mengulanginya.
+async function getRecentHooksBlock(): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from("content_pieces")
+    .select("thread_posts")
+    .not("thread_posts", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error(`[content-creator] Gagal ambil konten terakhir: ${error.message}`);
+    return "";
+  }
+
+  const hooks = (data ?? [])
+    .map((row) => (row.thread_posts as string[] | null)?.[0])
+    .filter((hook): hook is string => Boolean(hook))
+    .map((hook, index) => `${index + 1}. ${hook.replace(/\s+/g, " ").slice(0, 160)}`);
+
+  if (hooks.length === 0) {
+    return "";
+  }
+
+  return `Berikut pembuka dari konten-konten yang BARU SAJA dibuat. Konten baru WAJIB terasa beda: jangan pakai ulang cerita, tokoh, contoh, metafora, kalimat pembuka, atau sudut pandang yang sama dengan daftar ini:\n${hooks.join("\n")}\n\n`;
+}
+
 export async function runContentCreatorThreadJSON(
   funnelStage: FunnelStage,
-  pillar?: string
+  plan: ContentPlan = planContent(1)[0]
 ): Promise<ThreadGenerationResult> {
-  if (pillar !== undefined && !PILLAR_NAMES.includes(pillar)) {
-    throw new Error(
-      `Pillar tidak dikenal: "${pillar}". Pillar valid: ${PILLAR_NAMES.join(", ")}`
-    );
-  }
+  const { pillar, seed, extraInstruction, contentType, hookType, angle } = plan;
 
-  const chosenPillar = pillar ?? pickRandom(PILLAR_NAMES);
-  const { seed, extraInstruction } = getSeedForPillar(chosenPillar);
-  const hookType = pickRandom(HOOK_TYPES);
+  const styleInstruction = `Struktur/format konten: ${contentType.name} - ${contentType.desc}. Gaya pembuka (hook): ${hookType.name} - ${hookType.desc}. Sudut pandang/cara bercerita: ${angle}.`;
 
-  const contentTypeName = pickRandom(ACTIVE_CONTENT_TYPES);
-  const contentType = BRAND_CONFIG.contentTypes.find(
-    (type) => type.name === contentTypeName
-  );
-
-  if (!contentType) {
-    throw new Error(`Content type tidak ditemukan: "${contentTypeName}"`);
-  }
-
-  // thread_panjang/thread_pendek mewajibkan jumlah post tertentu - instruksi
-  // itu MENGGANTIKAN default "total 3-5 post" di bawah, bukan sekadar
-  // tambahan, supaya panjang thread benar-benar ikut content type.
-  const hasMandatoryLength =
-    contentType.name === "thread_panjang" || contentType.name === "thread_pendek";
-  const postCountClause = hasMandatoryLength
-    ? `jumlah post WAJIB mengikuti instruksi panjang di atas (${contentType.postCountHint})`
-    : "total 3-5 post";
-
-  const styleInstruction = `Struktur/format konten: ${contentType.name} - ${contentType.desc}. Panjang: ${contentType.postCountHint}. Gaya pembuka (hook): ${hookType.name} - ${hookType.desc}.`;
-
-  const feedbackBlock = await getRecentFeedbackBlock();
+  const [feedbackBlock, recentHooksBlock] = await Promise.all([
+    getRecentFeedbackBlock(),
+    getRecentHooksBlock(),
+  ]);
 
   const response = await claude.messages.create({
     model: MODEL,
@@ -189,7 +256,7 @@ export async function runContentCreatorThreadJSON(
     messages: [
       {
         role: "user",
-        content: `${feedbackBlock}Buat 1 thread Threads untuk tahap funnel ${funnelStage} tentang keresahan bapak-bapak kerja kantoran, dari pillar konten "${chosenPillar}". Pilih sendiri sudut pandang spesifik yang segar sesuai tahap funnel dan pillar ini. Gunakan momen/ide spesifik ini sebagai titik berangkat: ${seed}. Kembangkan dari momen ini, jangan generalisasi ke tema besar - tetap konkret dan personal.${extraInstruction ? ` ${extraInstruction}` : ""} ${styleInstruction} Balas HANYA dengan JSON array of strings, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook, ${postCountClause}).`,
+        content: `${feedbackBlock}${recentHooksBlock}Buat 1 thread Threads untuk tahap funnel ${funnelStage} tentang keresahan bapak-bapak kerja kantoran, dari pillar konten "${pillar}". Gunakan momen/ide ini sebagai titik berangkat: ${seed}. Ide ini cuma pemantik - cari sudut yang spesifik dan nggak terduga dari situ, jangan sekadar menceritakan ulang idenya, dan jangan generalisasi ke tema besar - tetap konkret dan personal.${extraInstruction ? ` ${extraInstruction}` : ""} ${styleInstruction} Balas HANYA dengan JSON array of strings, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook). Jumlah post WAJIB: ${contentType.postCountHint} - ikuti ini, jangan ditambah-tambah.`,
       },
     ],
   });
@@ -201,7 +268,7 @@ export async function runContentCreatorThreadJSON(
 
   return {
     posts: parseThreadPostsJSON(text),
-    pillar: chosenPillar,
+    pillar,
     hookType: hookType.name,
     contentType: contentType.name,
   };
@@ -219,7 +286,7 @@ export async function runContentRevision(
     messages: [
       {
         role: "user",
-        content: `Ini thread Threads yang sudah dibuat sebelumnya (JSON array of strings, tiap string 1 post):\n${JSON.stringify(threadPosts)}\n\nAdmin minta revisi dengan catatan berikut: "${notes}"\n\nRevisi thread di atas sesuai catatan tersebut. Pertahankan bagian yang sudah bagus, cuma ubah yang perlu diubah sesuai catatan. Balas HANYA dengan JSON array of strings hasil revisi, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook, total 3-5 post).`,
+        content: `Ini thread Threads yang sudah dibuat sebelumnya (JSON array of strings, tiap string 1 post):\n${JSON.stringify(threadPosts)}\n\nAdmin minta revisi dengan catatan berikut: "${notes}"\n\nRevisi thread di atas sesuai catatan tersebut. Pertahankan bagian yang sudah bagus, cuma ubah yang perlu diubah sesuai catatan. Balas HANYA dengan JSON array of strings hasil revisi, tanpa teks penjelasan apapun di luar JSON. Tiap string adalah 1 post dalam thread (maksimal 500 karakter, maksimal 1 hashtag kalau ada, post pertama adalah hook). Pertahankan jumlah post seperti versi sebelumnya, kecuali catatan revisi minta diubah.`,
       },
     ],
   });

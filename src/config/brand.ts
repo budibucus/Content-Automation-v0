@@ -16,6 +16,7 @@ interface BrandConfig {
   contentPillars: Record<string, string[]>;
   hookTypes: HookType[];
   contentTypes: ContentType[];
+  angles: string[];
   writingStyleRules: string;
   valuePrinciple: string;
 }
@@ -85,6 +86,13 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
       "Istri nanya kapan bisa liburan tanpa mikirin duit, nggak bisa jawab",
       "Notif kerjaan nyala jam 10 malam pas lagi mandiin anak",
       "Anak sakit, tetep harus buka laptop nyicil kerjaan dari rumah sakit",
+      "Pulang kantor anak udah tidur, cuma sempet lihat mukanya pas tidur",
+      "Weekend yang harusnya buat keluarga habis buat tidur karena kecapekan",
+      "Teman seangkatan kuliah update usahanya udah buka cabang, kita masih di posisi yang sama",
+      "Diam-diam ngecek saldo sebelum bayar belanjaan bulanan di kasir",
+      "Anak bilang cita-citanya mau kerja kayak bapak, campur aduk antara bangga dan khawatir",
+      "Ditawari promosi tapi artinya makin jarang di rumah",
+      "Lagi rapat online, anak masuk kamar minta ditemenin main",
     ],
     cerita_inspirasi_composite: [
       "Cerita orang yang penghasilan sampingannya sekarang datang dari skill yang dulu dianggap remeh/nggak penting di kantor",
@@ -92,6 +100,9 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
       "Cerita orang yang penghasilannya sekarang datang dari sesuatu yang bahkan dia sendiri nggak pernah kepikiran bisa dijual",
       "Cerita bapak yang mulai dari hal kecil banget (modal nyaris nol) tapi sekarang hasilnya udah nggak kebayang di titik awal",
       "Cerita orang yang usaha sampingannya justru lahir dari masalah pribadi yang dia coba selesein sendiri dulu",
+      "Cerita bapak yang usaha sampingan pertamanya gagal total, tapi kegagalan itu yang ngajarin dia hal paling penting",
+      "Cerita bapak yang mulai shift kedua bareng istri, dan gimana mereka bagi peran",
+      "Cerita orang yang tetap kerja kantoran walau usahanya jalan, dan alasannya",
     ],
     cerita_inspirasi_verified: [
       "FAKTA: Pengusaha keset dari kain perca. Mulai sebagai usaha sampingan saat toko utamanya sepi pembeli. Berkembang jadi bisnis dengan omzet ratusan juta rupiah, kemitraan berkembang dari sekitar 700 menuju 1000 mitra.",
@@ -102,11 +113,18 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
       "Cara nentuin 1 jam paling produktif buat shift kedua tanpa korbanin keluarga",
       "Kenapa 'nunggu waktu luang' itu jebakan, dan apa gantinya",
       "Cara validasi ide usaha dalam 1 minggu tanpa modal besar",
+      "Skill kantoran yang ternyata paling laku dijual: bikin laporan, presentasi, Excel, negosiasi",
+      "Cara ngobrolin rencana usaha sampingan sama istri tanpa bikin dia cemas",
+      "Bedanya penghasilan tambahan yang 'nambah kerjaan' vs yang 'nambah aset'",
+      "Cara manfaatin waktu perjalanan pulang-pergi kantor buat belajar skill baru",
     ],
     transparansi_proses: [
       "Progress bikin sistem bapak2shift sendiri - apa yang jalan, apa yang enggak",
       "Angka nyata: berapa jam per minggu yang benar-benar dipakai buat shift kedua",
       "Kesalahan yang udah dilakuin selama bangun bapak2shift, dan apa yang dipelajarin",
+      "Minggu yang berantakan: jadwal shift kedua gagal total, dan gimana bangkit lagi",
+      "Hal yang sengaja berhenti dikerjain biar ada waktu buat shift kedua",
+      "Reaksi keluarga waktu pertama kali tahu soal bapak2shift",
     ],
   },
   hookTypes: [
@@ -130,6 +148,18 @@ kalimat panjang mengalir natural seperti orang cerita biasa.`,
     { name: "thread_pendek", desc: "sampaikan dengan ringkas dan padat, satu ide utama saja, jangan diperpanjang tanpa perlu", postCountHint: "WAJIB 1-2 post, jangan lebih dari itu" },
     { name: "relatable", desc: "gambarkan momen sehari-hari spesifik yang bikin pembaca mikir 'ini gue banget' - dari pengalaman umum yang sering dialami tapi jarang diomongin terbuka, TANPA perlu insight besar di akhir, cukup relate", postCountHint: "1-2 post" },
     { name: "engagement", desc: "ajukan 1 pertanyaan terbuka yang mancing orang buat komentar/balas - TUJUANNYA memancing diskusi, bukan kasih informasi. Jangan terlalu sering dipakai relatif ke tipe lain", postCountHint: "1 post saja" },
+  ],
+  angles: [
+    "lewat 1 dialog singkat dengan anak atau istri sebagai pusat cerita",
+    "lewat 1 detail kecil yang konkret (benda, jam, tempat, notifikasi) yang jadi pusat cerita",
+    "dari momen di perjalanan pulang-pergi kantor (KRL, motor, macet, ojol)",
+    "seolah ngobrol dengan diri sendiri 5 tahun lalu",
+    "dari pengamatan ke orang lain (rekan kerja, tetangga, teman lama, ayah sendiri)",
+    "dengan perbandingan sebelum vs sesudah",
+    "dari pertanyaan yang sering muncul di kepala tapi nggak pernah diucapkan",
+    "dengan humor tipis yang self-deprecating, tapi tetap jujur",
+    "dari hal yang ternyata salah dipahami selama ini",
+    "dari sudut pandang orang terdekat (istri/anak) tentang si bapak",
   ],
   writingStyleRules: `Gunakan kalimat pendek. Satu paragraf cukup 1-2 kalimat.
 Hindari istilah rumit atau bahasa yang berusaha kedengaran pintar - gunakan
