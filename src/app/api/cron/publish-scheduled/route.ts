@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { publishThread } from "@/lib/threads";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export const maxDuration = 60;
+// Thread 4-5 post butuh ~60-90 detik (jeda 10 detik antar post + polling
+// container). Kalau kena limit 60 detik, function dibunuh di tengah jalan dan
+// row nyangkut di status "publishing".
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const authorization = request.headers.get("authorization");

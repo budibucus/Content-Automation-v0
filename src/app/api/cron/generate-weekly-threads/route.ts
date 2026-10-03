@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { runContentCreatorThreadJSON } from "@/lib/agents/content-creator";
+import { planContent, runContentCreatorThreadJSON } from "@/lib/agents/content-creator";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export const maxDuration = 60;
+// 14 hari x 3 slot = sampai 42 panggilan Claude; 60 detik tidak cukup.
+export const maxDuration = 300;
 
 const SLOT_SCHEDULE = [
   { hour: 5, stage: "tofu" },
@@ -16,6 +17,7 @@ const ACTIVE_STAGES = [
 ] as Stage[];
 
 const DAYS_AHEAD = 14;
+const CONCURRENCY = 6;
 
 interface Slot {
   stage: Stage;
@@ -83,21 +85,51 @@ export async function GET(request: Request) {
   );
   const skipped = slots.length - toGenerate.length;
 
-  const generated = await Promise.all(
-    toGenerate.map(async (slot) => {
-      const result = await runContentCreatorThreadJSON(slot.stage);
-      return {
+  // Generate per batch (bukan semua sekaligus) supaya tidak kena rate limit
+  // Claude. Pakai allSettled: kalau 1 slot gagal (misal JSON tidak valid),
+  // slot lain tetap disimpan - slot yang gagal otomatis diisi di run
+  // berikutnya karena belum ada di existingKeys.
+  // Rencana pillar/seed/tipe konten dibuat sekaligus untuk semua slot supaya
+  // tersebar rata, bukan acak sendiri-sendiri per slot.
+  const plans = planContent(toGenerate.length);
+  const generated: Record<string, unknown>[] = [];
+  const failures: string[] = [];
+
+  for (let i = 0; i < toGenerate.length; i += CONCURRENCY) {
+    const batch = toGenerate.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((slot, index) =>
+        runContentCreatorThreadJSON(slot.stage, plans[i + index])
+      )
+    );
+
+    results.forEach((result, index) => {
+      const slot = batch[index];
+
+      if (result.status === "rejected") {
+        const message =
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
+        console.error(
+          `[generate-weekly] Gagal generate ${slot.stage} ${slot.scheduledFor}: ${message}`
+        );
+        failures.push(`${slot.stage}|${slot.scheduledFor}`);
+        return;
+      }
+
+      generated.push({
         format: "threads",
         funnel_stage: slot.stage,
-        thread_posts: result.posts,
-        content_pillar: result.pillar,
-        hook_type: result.hookType,
-        content_type: result.contentType,
+        thread_posts: result.value.posts,
+        content_pillar: result.value.pillar,
+        hook_type: result.value.hookType,
+        content_type: result.value.contentType,
         scheduled_for: slot.scheduledFor,
         status: "pending_review",
-      };
-    })
-  );
+      });
+    });
+  }
 
   let created = 0;
 
@@ -114,5 +146,5 @@ export async function GET(request: Request) {
     created = data?.length ?? 0;
   }
 
-  return NextResponse.json({ created, skipped });
+  return NextResponse.json({ created, skipped, failed: failures });
 }
